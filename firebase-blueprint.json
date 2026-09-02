@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "portfolio_data": {
+      "title": "PortfolioData",
+      "description": "Stores portfolio profile, stats, skills, routes/projects, experience, and services.",
+      "type": "object",
+      "properties": {
+        "personalInfo": {
+          "type": "object",
+          "description": "Driver profile and contact details"
+        },
+        "statsData": {
+          "type": "array",
+          "description": "Driver distribution stats and metrics"
+        },
+        "socialLinks": {
+          "type": "array",
+          "description": "Driver social and messaging links"
+        },
+        "skillCategories": {
+          "type": "array",
+          "description": "Technical and operational skills"
+        },
+        "projectsData": {
+          "type": "array",
+          "description": "Logistics routes and delivery projects"
+        },
+        "experienceData": {
+          "type": "array",
+          "description": "Career and driving experience"
+        },
+        "servicesData": {
+          "type": "array",
+          "description": "Offered logistics and tanker services"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last updated ISO date string"
+        }
+      },
+      "required": ["updatedAt"]
+    },
+    "inquiries": {
+      "title": "Inquiries",
+      "description": "Customer freight inquiries and orders submitted via contact form.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Sender name or company"
+        },
+        "email": {
+          "type": "string",
+          "description": "Sender contact email"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Sender contact phone number"
+        },
+        "subject": {
+          "type": "string",
+          "description": "Route or cargo subject"
+        },
+        "message": {
+          "type": "string",
+          "description": "Cargo details and requirement"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when inquiry was created"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the inquiry (e.g., new, contacted, completed)"
+        }
+      },
+      "required": ["name", "email", "subject", "message", "createdAt"]
+    }
+  }
+}

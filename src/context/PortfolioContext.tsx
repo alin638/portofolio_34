@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import {
   PersonalInfo,
   StatItem,
@@ -17,6 +17,11 @@ import {
   experienceData as defaultExperienceData,
   servicesData as defaultServicesData
 } from '../data/portfolio';
+import {
+  fetchPortfolioFromFirestore,
+  savePortfolioToFirestore,
+  FirebasePortfolioPayload
+} from '../lib/firebase';
 
 const STORAGE_KEYS = {
   VERSION: 'portfolio_storage_v5_glukosa_budi_wa',
@@ -48,6 +53,13 @@ interface PortfolioContextType {
   isAdminOpen: boolean;
   setIsAdminOpen: (open: boolean) => void;
   
+  // Firebase sync capabilities
+  isFirebaseConnected: boolean;
+  isFirebaseSyncing: boolean;
+  firebaseLastSync: string | null;
+  syncToCloudFirestore: () => Promise<boolean>;
+  syncFromCloudFirestore: () => Promise<boolean>;
+
   resetToDefaults: () => void;
   exportDataJSON: () => void;
   importDataJSON: (jsonString: string) => boolean;
@@ -142,6 +154,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState(true);
+  const [isFirebaseSyncing, setIsFirebaseSyncing] = useState(false);
+  const [firebaseLastSync, setFirebaseLastSync] = useState<string | null>(() => {
+    return localStorage.getItem('portfolio_last_firebase_sync') || null;
+  });
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -164,6 +181,111 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       console.warn('Failed to save to localStorage', e);
     }
   }, [personalInfo, statsData, socialLinks, skillCategories, projectsData, experienceData, servicesData]);
+
+  // Sync to Firebase Cloud
+  const syncToCloudFirestore = useCallback(async (): Promise<boolean> => {
+    setIsFirebaseSyncing(true);
+    try {
+      const payload: FirebasePortfolioPayload = {
+        personalInfo,
+        statsData,
+        socialLinks,
+        skillCategories,
+        projectsData,
+        experienceData,
+        servicesData,
+        updatedAt: new Date().toISOString()
+      };
+      const success = await savePortfolioToFirestore(payload);
+      if (success) {
+        const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        setFirebaseLastSync(now);
+        localStorage.setItem('portfolio_last_firebase_sync', now);
+        setIsFirebaseConnected(true);
+        showToast('Data berhasil disinkronkan ke Firebase Firestore Cloud!');
+        return true;
+      } else {
+        showToast('Gagal menyinkronkan data ke Firebase.');
+        return false;
+      }
+    } catch (err) {
+      console.error('Firebase sync error:', err);
+      showToast('Error koneksi Firebase.');
+      return false;
+    } finally {
+      setIsFirebaseSyncing(false);
+    }
+  }, [personalInfo, statsData, socialLinks, skillCategories, projectsData, experienceData, servicesData]);
+
+  // Sync from Firebase Cloud
+  const syncFromCloudFirestore = useCallback(async (): Promise<boolean> => {
+    setIsFirebaseSyncing(true);
+    try {
+      const cloudData = await fetchPortfolioFromFirestore();
+      if (cloudData) {
+        if (cloudData.personalInfo) setPersonalInfo(cloudData.personalInfo);
+        if (cloudData.statsData) setStatsData(cloudData.statsData);
+        if (cloudData.socialLinks) setSocialLinks(cloudData.socialLinks);
+        if (cloudData.skillCategories) setSkillCategories(cloudData.skillCategories);
+        if (cloudData.projectsData) setProjectsData(cloudData.projectsData);
+        if (cloudData.experienceData) setExperienceData(cloudData.experienceData);
+        if (cloudData.servicesData) setServicesData(cloudData.servicesData);
+
+        const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        setFirebaseLastSync(now);
+        localStorage.setItem('portfolio_last_firebase_sync', now);
+        setIsFirebaseConnected(true);
+        showToast('Data terbaru berhasil dimuat dari Firebase Firestore!');
+        return true;
+      } else {
+        // If Firestore is empty, seed initial data to cloud
+        await syncToCloudFirestore();
+        return true;
+      }
+    } catch (err) {
+      console.error('Firebase fetch error:', err);
+      return false;
+    } finally {
+      setIsFirebaseSyncing(false);
+    }
+  }, [syncToCloudFirestore]);
+
+  // Initial cloud fetch on startup
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const cloudData = await fetchPortfolioFromFirestore();
+        if (isMounted) {
+          if (cloudData) {
+            if (cloudData.personalInfo) setPersonalInfo(cloudData.personalInfo);
+            if (cloudData.statsData) setStatsData(cloudData.statsData);
+            if (cloudData.socialLinks) setSocialLinks(cloudData.socialLinks);
+            if (cloudData.skillCategories) setSkillCategories(cloudData.skillCategories);
+            if (cloudData.projectsData) setProjectsData(cloudData.projectsData);
+            if (cloudData.experienceData) setExperienceData(cloudData.experienceData);
+            if (cloudData.servicesData) setServicesData(cloudData.servicesData);
+            setIsFirebaseConnected(true);
+          } else {
+            // First time cloud initialization: save default data to Firestore
+            savePortfolioToFirestore({
+              personalInfo,
+              statsData,
+              socialLinks,
+              skillCategories,
+              projectsData,
+              experienceData,
+              servicesData,
+              updatedAt: new Date().toISOString()
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Initial Firestore sync notice:', e);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, []);
 
   const resetToDefaults = () => {
     setPersonalInfo(defaultPersonalInfo);
@@ -238,6 +360,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         setServicesData,
         isAdminOpen,
         setIsAdminOpen,
+        isFirebaseConnected,
+        isFirebaseSyncing,
+        firebaseLastSync,
+        syncToCloudFirestore,
+        syncFromCloudFirestore,
         resetToDefaults,
         exportDataJSON,
         importDataJSON,
