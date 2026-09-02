@@ -1,0 +1,6 @@
+{
+  "name": "Professional Truck Driver Portfolio",
+  "description": "Portofolio profesional pengemudi truk tangki glukosa cair & pemanis Food Grade dari PT Budi Starch & Sweetener Tbk (Sungai Budi Group) dengan panel admin untuk ubah beranda, riwayat trayek pabrik, SIM BII Umum, dan pemesanan muatan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
